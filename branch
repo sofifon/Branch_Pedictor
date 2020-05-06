@@ -1,0 +1,230 @@
+#!/usr/bin/python3
+# Estructuras de Computadoras II
+# Universidad de Costa Rica
+# Tarea 1 - IS 2020
+# Sofía Fonseca Muñoz B42634
+
+from enum import Enum
+from math import pow
+import sys, getopt
+import fileinput
+
+
+# class HT contains all the functions related to the history tables, bht as well as pht and mp (meta predictor)
+class HT:
+    def __init__(self, s_value):
+        self.s_value = float(s_value)
+        self.ht_list = []
+        for x in range(0, int(pow(2, self.s_value))):
+            self.ht_list.append(0)
+
+    # get a specific branch of a history table
+    # row_index is the branch that is wanted
+    def get_ht_row(self, row_index):
+        return self.ht_list[row_index]
+
+    # set the value of a specific row of a history table
+    # row_index is the branch that is wanted to change
+    # row_value is the value that is going to be set to
+    def set_ht_row(self, row_index, row_value):
+        self.ht_list[row_index] = row_value
+
+    # return the value of a specific branch prediction
+    # row_index is the branch that is wanted
+    # True when the prediction is T or t
+    def is_taken(self, row_index):
+        if self.ht_list[row_index] > 1:
+            return True
+        else:
+            return False
+
+    # increase the value of a specific line of the branch history table
+    # row_index has the value of the line that is increasing
+    def inc_ht_row(self, row_index):
+        if self.ht_list[row_index] < 3:
+            self.ht_list[row_index] += 1
+
+    # decrease the value of a specific line of the branch history table
+    # row_index has the value of the line that is decreasing
+    def dec_ht_row(self, row_index):
+        if self.ht_list[row_index] > 0:
+            self.ht_list[row_index] -= 1
+
+
+def main():
+    help_text = "Be sure to use the next arguments when running the program \n -s for bht size \n -bp for prediction" \
+                " type \n -gh for global register size \n -ph for pht size \n -o to show statistics"
+    try:
+        opts, args = getopt.getopt(sys.argv[1:], "s:b:g:p:o:",)
+    except getopt.GetoptError:
+        print(help_text)
+        sys.exit(2)
+    for opt, arg in opts:
+        if opt == '-s':
+            s_value = arg
+        elif opt == '-b':
+            pred_type = arg
+        elif opt == '-g':
+            global_reg_size = arg
+        elif opt == '-p':
+            private_reg_size = arg
+        elif opt == '-o':
+            output_file = arg
+
+
+    # do not run the program if one of the arguments is missing
+    if 's_value' not in locals() or 'pred_type' not in locals() or 'global_reg_size' not in locals() or 'private_reg_size' not in locals() or 'output_file' not in locals():
+        print(help_text)
+        sys.exit(2)
+
+    bht1 = HT(s_value)
+    bht2 = HT(s_value)
+    pht = HT(s_value)
+    mp = HT(s_value)
+    if int(pred_type) == 0:
+        file = open('Bimodal.txt', 'a')
+    if int(pred_type) == 1:
+        file = open('Pshare.txt', 'a')
+    if int(pred_type) == 2:
+        file = open('Gshare.txt', 'a')
+    if int(pred_type) == 3:
+        file = open('Tournament.txt', 'a')
+
+    file.write('PC | Outcome | Prediction | correct? \n')
+    s_value = float(s_value)
+    global_reg_size = float(global_reg_size)
+    private_reg_size = float(private_reg_size)
+    global_reg = 0
+    b_counter = 0
+
+    # read the input file
+    for line in sys.stdin:
+        pc = int(line[0:10])
+        outcome = line[11]
+
+        # convert outcome value to True when is taken and to False when is no taken
+        if outcome is 'T':
+            outcome_taken = True
+        else:
+            outcome_taken = False
+
+        # bimodal predictor
+        if int(pred_type) == 0:
+            # get the last 's' bits of the program counter to get the branch address
+            branch_address = pc & int((pow(2, s_value) - 1))
+            # check the prediction
+            pred_taken = bht1.is_taken(branch_address)
+            if pred_taken is True:
+                pred = 'T'
+            else:
+                pred = 'N'
+            # change the value of the prediction if necessary
+            if outcome_taken is True:
+                bht1.inc_ht_row(branch_address)
+            else:
+                bht1.dec_ht_row(branch_address)
+
+            if outcome_taken is pred_taken:
+                correct = 'correct'
+            else:
+                correct = 'incorrect'
+
+            # add the line in the output file
+            file.write( str(pc) + ' | ' + str(outcome) + ' | ' + str(pred) + ' | ' + str(correct) + '\n')
+
+        # pshare predictor
+        if int(pred_type) == 1 or int(pred_type) == 3:
+            # get the last 's' bits of the program counter to get the pht line address
+            pht_address = pc & int(pow(2, s_value) - 1)
+            # get the value of the pht line address
+            pht_value = pht.get_ht_row(pht_address)
+            # get the bht address
+            p_branch_address = pht_address ^ pht_value
+            # check the prediction
+            p_pred_taken = bht1.is_taken(p_branch_address)
+
+            # change the value of the prediction if necessary
+            if outcome_taken is p_pred_taken:
+                correct = 'correct'
+            else:
+                correct = 'incorrect'
+
+            # add the last outcome to the pht table
+            if outcome_taken is True:
+                pht_value = ((pht_value << 1) | 1) & int((pow(2, private_reg_size) - 1))
+                bht1.inc_ht_row(p_branch_address)
+            else:
+                pht_value = (pht_value << 1) & int((pow(2, private_reg_size) - 1))
+                bht1.dec_ht_row(p_branch_address)
+
+            pht.set_ht_row(pht_address, pht_value)
+
+            if int(pred_type) == 1:
+                if p_pred_taken is True:
+                    pred = 'T'
+                else:
+                    pred = 'N'
+                # add the line in the output file
+                file.write(str(pc) + ' | ' + str(outcome) + ' | ' + str(pred) + ' | ' + str(correct) + '\n')
+
+        # gshare predictor
+        if int(pred_type) == 2 or int(pred_type) == 3:
+            # get the last 's' bits of the pc XORd global register to get the branch address
+            g_branch_address = (pc ^ global_reg) & int((pow(2, s_value) - 1))
+            # check the prediction
+            g_pred_taken = bht2.is_taken(g_branch_address)
+
+            # change the value of the prediction if necessary
+            if outcome_taken is True:
+                bht2.inc_ht_row(g_branch_address)
+            else:
+                bht2.dec_ht_row(g_branch_address)
+
+            if outcome_taken is g_pred_taken:
+                correct = 'correct'
+            else:
+                correct = 'incorrect'
+
+            # add the last outcome to the global register
+            if outcome_taken is True:
+                global_reg = ((global_reg << 1) | 1) & int((pow(2, global_reg_size) - 1))
+            else:
+                global_reg = (global_reg << 1) & int((pow(2, global_reg_size) - 1))
+
+            if int(pred_type) == 2:
+                if g_pred_taken is True:
+                    pred = 'T'
+                else:
+                    pred = 'N'
+                # add the line in the output file
+                file.write(str(pc) + ' | ' + str(outcome) + ' | ' + str(pred) + ' | ' + str(correct) + '\n')
+
+        # tournament predictor
+        if int(pred_type) == 3:
+            mp_value = mp.get_ht_row(pht_address)
+            # choosing between gshare and pshare prediction
+            if mp_value > 1:
+                pred_taken = g_pred_taken
+            else:
+                pred_taken = p_pred_taken
+
+            # changing the value of the meta predictor to the other method if necessary
+            if outcome_taken is g_pred_taken and outcome_taken is not p_pred_taken:
+                mp.inc_ht_row(pht_address)
+            if outcome_taken is p_pred_taken and outcome_taken is not g_pred_taken:
+                mp.dec_ht_row(pht_address)
+
+            if outcome_taken is pred_taken:
+                correct = 'correct'
+            else:
+                correct = 'incorrect'
+
+            if pred_taken is True:
+                pred = 'T'
+            else:
+                pred = 'N'
+            # add the line in the output file
+            file.write( str(pc) + ' | ' + str(outcome) + ' | ' + str(pred) + ' | ' + str(correct) + '\n')
+
+if __name__ == "__main__":
+    main()
