@@ -54,22 +54,30 @@ class HT:
 def main():
     help_text = "Be sure to use the next arguments when running the program \n -s for bht size \n -bp for prediction" \
                 " type \n -gh for global register size \n -ph for pht size \n -o to show statistics"
-    try:
-        opts, args = getopt.getopt(sys.argv[1:], "s:b:g:p:o:",)
-    except getopt.GetoptError:
-        print(help_text)
-        sys.exit(2)
-    for opt, arg in opts:
+    skip_next = False
+    for x in range(1, len(sys.argv)):
+        opt = sys.argv[x]
+        if skip_next:
+            skip_next = False
+            continue
         if opt == '-s':
-            s_value = arg
-        elif opt == '-b':
-            pred_type = arg
-        elif opt == '-g':
-            global_reg_size = arg
-        elif opt == '-p':
-            private_reg_size = arg
+            s_value = sys.argv[x+1]
+            skip_next = True
+        elif opt == '-bp':
+            pred_type = sys.argv[x+1]
+            skip_next = True
+        elif opt == '-gh':
+            global_reg_size = sys.argv[x+1]
+            skip_next = True
+        elif opt == '-ph':
+            private_reg_size = sys.argv[x+1]
+            skip_next = True
         elif opt == '-o':
-            output_file = arg
+            output_file = sys.argv[x+1]
+            skip_next = True
+        else:
+            print(help_text)
+
 
 
     # do not run the program if one of the arguments is missing
@@ -83,11 +91,11 @@ def main():
     mp = HT(s_value)
     if int(pred_type) == 0:
         file = open('Bimodal.txt', 'a')
-    if int(pred_type) == 1:
+    elif int(pred_type) == 1:
         file = open('Pshare.txt', 'a')
-    if int(pred_type) == 2:
+    elif int(pred_type) == 2:
         file = open('Gshare.txt', 'a')
-    if int(pred_type) == 3:
+    elif int(pred_type) == 3:
         file = open('Tournament.txt', 'a')
 
     file.write('PC | Outcome | Prediction | correct? \n')
@@ -273,11 +281,11 @@ def main():
         perc_pred = (cnb_counter + ctb_counter) / b_counter * 100
         if int(pred_type) == 0:
             prediction_type = 'Bimodal'
-        if int(pred_type) == 1:
+        elif int(pred_type) == 1:
             prediction_type = 'PShare'
-        if int(pred_type) == 2:
+        elif int(pred_type) == 2:
             prediction_type = 'GShare'
-        if int(pred_type) == 3:
+        elif int(pred_type) == 3:
             prediction_type = 'Tournament'
         print('----------------------------------------------------------------\n'
               'Prediction parameters\n'
