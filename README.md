@@ -14,13 +14,20 @@ Los predictores utilizados son los siguientes:
 
 
 Instrucciones:
-Para ejecutar el programa, se debe hacer de la siguiente forma:
+Para ejecutar el programa, se debe contar con Python3. El programa correrá bajo la siguiente instrucción:
 
 gunzip -c branch-trace-gcc.trace.gz | branch -s <#> -b <#> -g <#> -p <#> -o <#>
 
 Donde cada uno de los parámetros corresponden de la siguiente manera
-s: Tamaño de la tabla BTH
-b: Tipo de predicción
-g: Tamaño del registro de predicción global
-p: Tamaño de los registros de historia privada
-o: Salida de la simulación
+	s: Tamaño de la tabla BTH
+	b: Tipo de predicción 
+		Donde las opciones son: 
+			0 Bimodal
+			1 PShare
+			2 GShare
+			3 Tournament
+	g: Tamaño del registro de predicción global
+	p: Tamaño de los registros de historia privada
+	o: Salida de la simulación
+		Al utilizar un 1, saldrán las estadísticas del programa.
+ 	 

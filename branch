@@ -94,14 +94,24 @@ def main():
     s_value = float(s_value)
     global_reg_size = float(global_reg_size)
     private_reg_size = float(private_reg_size)
+    # setting the global register for global history prediction
     global_reg = 0
+    # setting the branch counter
     b_counter = 0
+    # setting the correct taken branch prediction counter
+    ctb_counter = 0
+    # setting the incorrect taken branch prediction counter
+    itb_counter = 0
+    # setting the correct not taken branch prediction counter
+    cnb_counter = 0
+    # setting the incorrect not taken branch prediction counter
+    inb_counter = 0
 
     # read the input file
     for line in sys.stdin:
         pc = int(line[0:10])
         outcome = line[11]
-
+        b_counter += 1
         # convert outcome value to True when is taken and to False when is no taken
         if outcome is 'T':
             outcome_taken = True
@@ -124,10 +134,19 @@ def main():
             else:
                 bht1.dec_ht_row(branch_address)
 
+            # set the counter for statistics and the strings to print the result
             if outcome_taken is pred_taken:
                 correct = 'correct'
+                if outcome_taken is True:
+                    ctb_counter += 1
+                else:
+                    cnb_counter += 1
             else:
                 correct = 'incorrect'
+                if outcome_taken is True:
+                    itb_counter += 1
+                else:
+                    inb_counter += 1
 
             # add the line in the output file
             file.write( str(pc) + ' | ' + str(outcome) + ' | ' + str(pred) + ' | ' + str(correct) + '\n')
@@ -143,13 +162,8 @@ def main():
             # check the prediction
             p_pred_taken = bht1.is_taken(p_branch_address)
 
-            # change the value of the prediction if necessary
-            if outcome_taken is p_pred_taken:
-                correct = 'correct'
-            else:
-                correct = 'incorrect'
-
             # add the last outcome to the pht table
+            # change the value of the prediction if necessary
             if outcome_taken is True:
                 pht_value = ((pht_value << 1) | 1) & int((pow(2, private_reg_size) - 1))
                 bht1.inc_ht_row(p_branch_address)
@@ -159,13 +173,28 @@ def main():
 
             pht.set_ht_row(pht_address, pht_value)
 
+            # set the counter for statistics and the strings to print the result
             if int(pred_type) == 1:
                 if p_pred_taken is True:
                     pred = 'T'
                 else:
                     pred = 'N'
+
+                if outcome_taken is p_pred_taken:
+                    correct = 'correct'
+                    if outcome_taken is True:
+                        ctb_counter += 1
+                    else:
+                        cnb_counter += 1
+                else:
+                    correct = 'incorrect'
+                    if outcome_taken is True:
+                        itb_counter += 1
+                    else:
+                        inb_counter += 1
                 # add the line in the output file
                 file.write(str(pc) + ' | ' + str(outcome) + ' | ' + str(pred) + ' | ' + str(correct) + '\n')
+
 
         # gshare predictor
         if int(pred_type) == 2 or int(pred_type) == 3:
@@ -175,27 +204,32 @@ def main():
             g_pred_taken = bht2.is_taken(g_branch_address)
 
             # change the value of the prediction if necessary
-            if outcome_taken is True:
-                bht2.inc_ht_row(g_branch_address)
-            else:
-                bht2.dec_ht_row(g_branch_address)
-
-            if outcome_taken is g_pred_taken:
-                correct = 'correct'
-            else:
-                correct = 'incorrect'
-
             # add the last outcome to the global register
             if outcome_taken is True:
+                bht2.inc_ht_row(g_branch_address)
                 global_reg = ((global_reg << 1) | 1) & int((pow(2, global_reg_size) - 1))
             else:
+                bht2.dec_ht_row(g_branch_address)
                 global_reg = (global_reg << 1) & int((pow(2, global_reg_size) - 1))
 
+            # set the counter for statistics and the strings to print the result
             if int(pred_type) == 2:
                 if g_pred_taken is True:
                     pred = 'T'
                 else:
                     pred = 'N'
+                if outcome_taken is g_pred_taken:
+                    correct = 'correct'
+                    if outcome_taken is True:
+                        ctb_counter += 1
+                    else:
+                        cnb_counter += 1
+                else:
+                    correct = 'incorrect'
+                    if outcome_taken is True:
+                        itb_counter += 1
+                    else:
+                        inb_counter += 1
                 # add the line in the output file
                 file.write(str(pc) + ' | ' + str(outcome) + ' | ' + str(pred) + ' | ' + str(correct) + '\n')
 
@@ -214,10 +248,19 @@ def main():
             if outcome_taken is p_pred_taken and outcome_taken is not g_pred_taken:
                 mp.dec_ht_row(pht_address)
 
+            # set the counter for statistics and the strings to print the result
             if outcome_taken is pred_taken:
                 correct = 'correct'
+                if outcome_taken is True:
+                    ctb_counter += 1
+                else:
+                    cnb_counter += 1
             else:
                 correct = 'incorrect'
+                if outcome_taken is True:
+                    itb_counter += 1
+                else:
+                    inb_counter += 1
 
             if pred_taken is True:
                 pred = 'T'
@@ -225,6 +268,34 @@ def main():
                 pred = 'N'
             # add the line in the output file
             file.write( str(pc) + ' | ' + str(outcome) + ' | ' + str(pred) + ' | ' + str(correct) + '\n')
+
+    if int(output_file) == 1:
+        perc_pred = (cnb_counter + ctb_counter) / b_counter * 100
+        if int(pred_type) == 0:
+            prediction_type = 'Bimodal'
+        if int(pred_type) == 1:
+            prediction_type = 'PShare'
+        if int(pred_type) == 2:
+            prediction_type = 'GShare'
+        if int(pred_type) == 3:
+            prediction_type = 'Tournament'
+        print('----------------------------------------------------------------\n'
+              'Prediction parameters\n'
+              '----------------------------------------------------------------\n'
+              'Branch prediction type:                          ' + prediction_type + '\n'
+              'BHT size:                                        ' + str(pow(2, s_value)) + '\n'
+              'Global history register size:                    ' + str(global_reg_size) + '\n'
+              'Private history register size:                   ' + str(private_reg_size) + '\n'
+              '----------------------------------------------------------------\n'
+              'Simulation results\n'
+              '----------------------------------------------------------------\n'
+              'Number of branch:                                ' + str(b_counter) + '\n'
+              'Number of correct prediction of taken branches:  ' + str(ctb_counter) + '\n'
+              'Number of incorrect prediction of taken branches:' + str(itb_counter) + '\n'
+              'Correct prediction of not taken branches:        ' + str(cnb_counter) + '\n'
+              'Incorrect prediction of not taken branches:      ' + str(inb_counter) + '\n'
+              'Percentage of correct predictions:               ' + str(perc_pred))
+
 
 if __name__ == "__main__":
     main()
